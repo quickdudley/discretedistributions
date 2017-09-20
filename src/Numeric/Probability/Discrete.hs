@@ -6,7 +6,8 @@ module Numeric.Probability.Discrete (
   normalize,
   normalize',
   observe,
-  determine
+  determine,
+  probabilityOf
  ) where
 
 import Data.List
@@ -67,3 +68,7 @@ observe p (P l) = proportional $ do
 -- | Remove outcomes which do not satisfy the predicate. Similar to 'filter'
 determine :: (a -> Bool) -> Distribution a -> Distribution a
 determine p (P l) = proportional $ filter (p . snd) l
+
+-- | Calculates the probability of the predicate being satisfied
+probabilityOf :: (a -> Bool) -> Distribution a -> Rational
+probabilityOf p (P l) = sum $ map fst $ filter (p . snd) l
