@@ -1,6 +1,6 @@
 name:                discretedistributions
 version:             0.1.0.0
--- synopsis:
+synopsis:            Simple discrete probability distributions
 -- description:
 homepage:            https://github.com/quickdudley/discretedistributions#readme
 license:             BSD3
