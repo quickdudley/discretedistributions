@@ -7,7 +7,10 @@ module Numeric.Probability.Discrete (
   normalize',
   observe,
   determine,
-  probabilityOf
+  probabilityOf,
+  entropy,
+  expectedValue,
+  averageEntropy
  ) where
 
 import Data.List
@@ -84,3 +87,14 @@ determine p (P l) = proportional $ filter (p . snd) l
 -- | Calculates the probability of the predicate being satisfied
 probabilityOf :: (a -> Bool) -> Distribution a -> Rational
 probabilityOf p (P l) = sum $ map fst $ filter (p . snd) l
+
+-- | Calculate the entropy of each element of a distribution
+entropy :: Floating e => Distribution a -> Distribution e
+entropy (P l) = P $ map (\(p,_) -> (p,log (fromRational (1 / p)) / log 2)) l
+
+-- | Calculate the expected value of a distribution
+expectedValue :: Fractional a => Distribution a -> a
+expectedValue (P l) = sum $ map (\(p,a) -> fromRational p * a) l
+
+averageEntropy :: Floating e => Distribution a -> e
+averageEntropy = expectedValue . entropy
