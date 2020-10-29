@@ -3,6 +3,8 @@ module Numeric.Probability.Discrete (
   runDistribution,
   proportional,
   uniform,
+  consolidate,
+  consolidate',
   normalize,
   normalize',
   observe,
@@ -65,6 +67,16 @@ normalize (P l) = P $ map (\g@(~(~(_,v):_)) -> (sum $ map fst g, v)) $
   groupBy ((==) `on` snd) $
   sortBy (compare `on` snd) l
 
+-- | Merge duplicated outcomes, each with an auxillary distribution
+consolidate :: Ord a => Distribution (a, Distribution b) -> Distribution (a, Distribution b)
+consolidate (P l) = P $ map (\g@(~(~(~(_,~(v,_))):_)) -> (sum $ map fst g, (v, proportional $ do
+   ~(pp,~(_,P h)) <- g
+   ~(sp,b) <- h
+   return (pp*sp,b)
+  ))) $
+  groupBy ((==) `on` (fst . snd)) $
+  sortBy (compare `on` (fst . snd)) l
+
 -- | Merge duplicated outcomes (slower but does not require 'Ord' instance)
 normalize' :: Eq a => Distribution a -> Distribution a
 normalize' = P . go . runDistribution where
@@ -72,6 +84,19 @@ normalize' = P . go . runDistribution where
   go ((p1,a):r) = let
     (h,z) = partition ((== a) . snd) r
     in (p1 + sum (map fst h), a) : go z
+
+-- | Merge duplicated outcomes, each with an auxillary distribution
+-- (slower but does not require 'Ord' instance)
+consolidate' :: Eq a => Distribution (a, Distribution b) -> Distribution (a, Distribution b)
+consolidate' = P . go . runDistribution where
+  go [] = []
+  go ((a'@(p1,(a,_))):r) = let
+    (i,z) = partition ((== a) . fst . snd) r
+    h = proportional $ do
+      ~(pp,~(_,P j)) <- a' : i
+      ~(sp,b) <- j
+      return (pp*sp,b)
+    in (p1 + sum (map fst i), (a, h)) : go z
 
 -- | Bayesian inference (or fuzzy 'determine')
 observe :: (a -> Distribution Bool) -> Distribution a -> Distribution a
