@@ -15,7 +15,8 @@ cabal-version:       >=1.10
 
 library
   hs-source-dirs:      src
-  exposed-modules:     Numeric.Probability.Discrete
+  exposed-modules:     Numeric.Probability.Discrete,
+                       Numeric.Probability.Discrete.QualifiedDo
   build-depends:       base >= 4.7 && < 5
   default-language:    Haskell2010
 
