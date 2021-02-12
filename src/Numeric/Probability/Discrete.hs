@@ -63,9 +63,37 @@ uniform l = let
 
 -- | Merge duplicated outcomes.
 normalize :: Ord a => Distribution a -> Distribution a
-normalize (P l) = P $ map (\g@(~(~(_,v):_)) -> (sum $ map fst g, v)) $
-  groupBy ((==) `on` snd) $
-  sortBy (compare `on` snd) l
+normalize = P . mergeAll . sequences . runDistribution where
+  sequences (a@(ap,av):b@(bp,bv):r) = case av `compare` bv of
+    GT -> descending b [a] r
+    EQ -> sequences ((ap + bp, av):r)
+    LT -> ascending b (a:) r
+  sequences xs = [xs]
+
+  descending a@(ap,av) as bl@(b@(bp,bv):bs) = case av `compare` bv of
+    GT -> descending b (a:as) bs
+    EQ -> descending (ap + bp, av) as bs
+    LT -> (a:as) : sequences bl
+  descending a as bs = (a:as) : sequences bs
+
+  ascending a@(ap,av) as bl@(b@(bp,bv):bs) = case av `compare` bv of
+    LT -> ascending b (as . (a:)) bs
+    EQ -> ascending (ap + bp, av) as bs
+    GT -> as [a] : sequences bl
+  ascending a as bs = as [a] : sequences bs
+
+  mergeAll [x] = x
+  mergeAll xs = mergeAll (mergePairs xs)
+
+  mergePairs (a:b:xs) = merge a b : mergePairs xs
+  mergePairs xs = xs
+
+  merge as@(a@(ap,av):as') bs@(b@(bp,bv):bs') = case av `compare` bv of
+    GT -> b : merge as bs'
+    EQ -> merge ((ap + bp, av):as') bs'
+    LT -> a : merge as' bs
+  merge [] bs = bs
+  merge as [] = as
 
 -- | Merge duplicated outcomes, each with an auxillary distribution
 consolidate :: Ord a => Distribution (a, Distribution b) -> Distribution (a, Distribution b)
