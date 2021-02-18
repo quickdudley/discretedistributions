@@ -3,6 +3,7 @@ module Numeric.Probability.Discrete (
   runDistribution,
   proportional,
   uniform,
+  (>>>=),
   consolidate,
   consolidate',
   normalize,
@@ -32,6 +33,10 @@ instance Applicative Distribution where
 instance Monad Distribution where
   return = pure
   P a >>= f = P [(pa * pb,b) | ~(pa,a') <- a, ~(pb,b) <- runDistribution (f a')]
+
+infixl 1 >>>=
+(>>>=) :: Ord a => Distribution a -> (a -> Distribution b) -> Distribution b
+a >>>= f = normalize a >>= f
 
 instance Show a => Show (Distribution a) where
   showsPrec _ (P d) = ("proportional "++) . showsPrec 11 d
@@ -97,13 +102,40 @@ normalize = P . mergeAll . sequences . runDistribution where
 
 -- | Merge duplicated outcomes, each with an auxillary distribution
 consolidate :: Ord a => Distribution (a, Distribution b) -> Distribution (a, Distribution b)
-consolidate (P l) = P $ map (\g@(~(~(~(_,~(v,_))):_)) -> (sum $ map fst g, (v, proportional $ do
-   ~(pp,~(_,P h)) <- g
-   ~(sp,b) <- h
-   return (pp*sp,b)
-  ))) $
-  groupBy ((==) `on` (fst . snd)) $
-  sortBy (compare `on` (fst . snd)) l
+consolidate = P . map doRaise . mergeAll . sequences . map doDrop . runDistribution where
+  doDrop (p,(v, P a)) = (p, v, map (\(p2,i) -> (p2 * p, i)) a)
+  doRaise (p,v,a) = (p,(v, P (map (\(p2,i) -> (p2 / p, i)) a)))
+
+  sequences (a@(ap,av,aa):b@(bp,bv,ba):r) = case av `compare` bv of
+    GT -> descending b [a] r
+    EQ -> sequences ((ap + bp, av, aa ++ ba):r)
+    LT -> ascending b (a:) r
+  sequences xs = [xs]
+
+  descending a@(ap,av,aa) as bl@(b@(bp,bv,ba):bs) = case av `compare` bv of
+    GT -> descending b (a:as) bs
+    EQ -> descending (ap + bp, av, aa ++ ba) as bs
+    LT -> (a:as) : sequences bl
+  descending a as bs = (a:as) : sequences bs
+
+  ascending a@(ap,av,aa) as bl@(b@(bp,bv,ba):bs) = case av `compare` bv of
+    LT -> ascending b (as . (a:)) bs
+    EQ -> ascending (ap + bp, av, aa ++ ba) as bs
+    GT -> as [a] : sequences bl
+  ascending a as bs = as [a] : sequences bs
+
+  mergeAll [x] = x
+  mergeAll xs = mergeAll (mergePairs xs)
+
+  mergePairs (a:b:xs) = merge a b : mergePairs xs
+  mergePairs xs = xs
+
+  merge as@(a@(ap,av,aa):as') bs@(b@(bp,bv,ba):bs') = case av `compare` bv of
+    GT -> b : merge as bs'
+    EQ -> merge ((ap + bp, av, aa ++ ba):as') bs'
+    LT -> a : merge as' bs
+  merge [] bs = bs
+  merge as [] = as
 
 -- | Merge duplicated outcomes (slower but does not require 'Ord' instance)
 normalize' :: Eq a => Distribution a -> Distribution a
