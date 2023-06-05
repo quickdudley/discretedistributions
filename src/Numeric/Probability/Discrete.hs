@@ -13,7 +13,8 @@ module Numeric.Probability.Discrete (
   probabilityOf,
   entropy,
   expectedValue,
-  averageEntropy
+  averageEntropy,
+  pile
  ) where
 
 import Data.List
@@ -172,6 +173,18 @@ determine p (P l) = proportional $ filter (p . snd) l
 -- | Calculates the probability of the predicate being satisfied
 probabilityOf :: (a -> Bool) -> Distribution a -> Rational
 probabilityOf p (P l) = sum $ map fst $ filter (p . snd) l
+
+-- | Finds the item in a probability distribution such that the probability
+--   of an item being equal or lesser is closest to the probability provided.
+--   (can be used to find the median, percentiles, etc)
+pile :: Ord a => Distribution a -> Rational -> a
+pile = go . runDistribution . normalize where
+  go [] _ = error "Empty distribution"
+  go _ p
+    | p > 1 = error "Probability is greater than 1"
+  go ((p1,a):r) p
+    | p <= p1 = a
+    | otherwise = go r (p - p1)
 
 -- | Calculate the entropy of each element of a distribution
 entropy :: Floating e => Distribution a -> Distribution e
